@@ -1,84 +1,32 @@
+import requests
+from bs4 import BeautifulSoup
 import csv
 
-results = []
-curf_ = {}
-with open('district_overall_2018.csv', encoding='utf-8', mode='r') as file:
-    reader = csv.reader(file)
-    states = {}
-    first_line = True
-    for row in reader:
-        if first_line:
-            first_line = False
-            continue
-        state_name = row[1]
-        total_votes = int(row[15])
-        candidate_name = row[10]
-        candidate_party = row[11]
-        candidate_votes = int(row[14])
-        candidate_vote_share = round((candidate_votes / total_votes) * 100, 2)
+url = 'https://www.house.gov/representatives'
+page = requests.get(url)
+soup = BeautifulSoup(page.content, 'html.parser')
 
-        candidate = {
-            'name': candidate_name,
-            'party': candidate_party,
-            'votes': candidate_votes,
-            'vote_share': candidate_vote_share
-        }
+results = soup.find('div', class_='view-content')
+states = results.find_all('table', class_='table')
 
-        district_num = [int(s) for s in row[7].split() if s.isdigit()][0]
-        district_name = '{0}-{1}'.format(row[2], district_num)
-        district = {"candidates": [candidate], "district_name": district_name, "total_votes": row[15]}
-        state = {district_num: district}
-        if state_name not in states:
-            states[state_name] = state
-        elif district_name not in states[state_name]:
-            states[state_name][district_num] = district
+p = 0
+with open('congress.csv', 'w', newline='', encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerow(["First Name", "Last Name", "State", "C.D.", "Party", "Phone Number"])
+    for i in states:
+        state_name = i.find('caption').text.strip()
 
-        elif candidate not in states[state_name][district_name]["candidates"]:
-            states[state_name][district_num]["candidates"].append(candidate)
+        members = i.find('tbody').find_all('tr')
+        print(state_name)
 
-    for state in states:
-        for district in states[state]:
-            curated = sorted(states[state][district]['candidates'], key=lambda t: t['vote_share'], reverse=True)
-            victor = curated[0]
-            district_results = {
-                'state': state,
-                'district': district,
-                'winner': victor['name'],
-            }
-            winner_msg = "The winner of {0} is {1} with a vote share of {2}. ".format(district, curated[0]['name'],
-                                                                             curated[0]['vote_share'])
-            margin_msg = ""
-            if len(curated) > 1:
-                loser = curated[1]
-                margin_msg = ("Margin is {0} to {1}, result is {2}".format(victor['vote_share'], loser['vote_share'], (victor['vote_share'] - loser['vote_share'])))
-                district_results['margin'] = (victor['vote_share'] - loser['vote_share'])
-                winner_msg += "The second place person is {0} with {1} of the vote.".format(loser['name'], loser['vote_share'])
-            print(winner_msg)
-            print(margin_msg)
-            results.append(district_results)
-
-    curf_ = {}
-    for state in states:
-        cur = dict(sorted(states[state].items(), key=lambda item: item[0]))
-        curf_[state] = cur
-    print(curf_)
-    new_curf = []
-    for key, val in sorted(curf_.items()):
-        new_curf.append(curf_[key])
-    print(new_curf)
-
-
-curated_ = sorted(results, key=lambda district: district['district'])
-
-
-
-
-with open('2018_midterm_results.csv', encoding='utf-8', mode='w') as file:
-    writer = csv.DictWriter(file, results[0].keys())
-    writer.writeheader()
-    writer.writerows(curated_)
-
-
-
-
+        for member in members:
+            district, name, party, office, phone, assignment = [e.text.strip() for e in member.find_all('td')]
+            if ',' in name:
+                kr = name.split(",")
+                first_name = kr[1].strip()
+                last_name = kr[0].strip()
+            else:
+                first_name = name
+                last_name = ""
+            writer.writerow([first_name, last_name, state_name, district, party, phone])
 
