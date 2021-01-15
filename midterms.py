@@ -65,9 +65,6 @@ for state in states:
 print(dict(sorted(results.items(), key=lambda item: item[0])))
 
 
-
-
-
 with open('2018_midterm_results.csv', encoding='utf-8', mode='w') as file:
     writer = csv.DictWriter(file, results[state][district].keys())
     writer.writeheader()
