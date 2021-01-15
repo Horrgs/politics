@@ -49,3 +49,4 @@ Pipfile
 pipfile.lock
 keys.json
 *.pyc
+*.csv
