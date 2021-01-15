@@ -1,18 +1,51 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-[Bb]in/
+-# Build and Release Folders
+ -bin/
+ -bin-debug/
+ -bin-release/
+ +# Eclipse stuff
+ +/.classpath
+ +/.project
+ +/.settings
+  
+ -# Other files and folders
+ -.settings/
+ +# netbeans
+ +/nbproject
+  
+ -# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
+ -# should NOT be excluded as they contain compiler settings and other important
+ -# information for Eclipse / Flash Builder.
+ +# we use maven!
+ +/build.xml
+ +
+ +# maven
+ +/target
+ +
+ +# vim
+ +.*.sw[a-p]
+ +
+ +# various other potential build files
+ +/build
+ +/bin
+ +/dist
+ +/manifest.mf
+ +
+ +/world
+ +
+ +# Mac filesystem dust
+ +/.DS_Store
+ +
+ +# intellij
+ *.iml
+ *.ipr
+ *.iws
+.idea/
 
-# Other files and folders
-.settings/
+#violet
 
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
-
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
+*.sqlite3
+*.lock
+Pipfile
+pipfile.lock
+keys.json
+*.pyc
