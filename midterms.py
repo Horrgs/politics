@@ -69,10 +69,10 @@ print(dict(sorted(results.items(), key=lambda item: item[0])))
 
 
 with open('2018_midterm_results.csv', encoding='utf-8', mode='w') as file:
-   for state in states:
+    writer = csv.DictWriter(file, results[state][district].keys())
+    writer.writeheader()
+    for state in states:
         for district in states[state]:
-            writer = csv.DictWriter(file, results[state][district].keys())
-            writer.writeheader()
             writer.writerows(results[state][district])
 
 
