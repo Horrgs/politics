@@ -4,6 +4,14 @@ from collections import OrderedDict
 results = {}
 curf_ = {}
 states = {}
+district_results = {
+            'district_name': '',
+            'winner': '',
+            'party': '',
+            'candidate_votes': '',
+            'vote_share': '',
+            'total_votes': ''
+        }
 with open('district_overall_2018.csv', encoding='utf-8', mode='r') as file:
     reader = csv.reader(file)
 
@@ -62,16 +70,13 @@ for state in states:
         state_results[district] = district_results
     cur = dict(sorted(state_results.items(), key=lambda item: item[0]))
     results[state] = cur
-print(dict(sorted(results.items(), key=lambda item: item[0])))
 
+results = dict(sorted(results.items(), key=lambda item: item[0]))
+print(results)
 
 with open('2018_midterm_results.csv', encoding='utf-8', mode='w') as file:
-    writer = csv.DictWriter(file, results[state][district].keys())
+    writer = csv.DictWriter(file, district_results.keys())
     writer.writeheader()
-    for state in states:
-        for district in states[state]:
-            writer.writerows(results[state][district])
-
-
-
-
+    for state in results:
+        for district in results[state]:
+            writer.writerow(results[state][district])
