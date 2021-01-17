@@ -29,13 +29,17 @@ def get_donations():
             if header_name == "contributor":
                 x = header_value.find_all('font')
                 for i in x:
-                    print(i.contents)
+                    r = 0
+                    for y in i:
+                        if "<b>" and "</b>" and "<br/>" not in str(y).strip():
+                            print("{0}: {1}".format(r, str(y)))
+                            r+=1
         data_set.append(individual)
     return data_set
 
 def sort_politics(response):
     total_contr = response[-1]['amount']
-    print(total_contr)
+    #print(total_contr)
     del response[-1]
     sorted = []
     for k, v in groupby(response, key=lambda x: x['contributor']):
