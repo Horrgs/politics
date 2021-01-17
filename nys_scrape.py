@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import csv
 from itertools import groupby
 from datetime import datetime
+import re
 
 def get_donations():
     url = ('https://cfapp.elections.ny.gov/ords/plsql_browser/CONTRIBUTORA_COUNTY?ID_in=C87477&' +
@@ -25,12 +26,16 @@ def get_donations():
             elif header_name == "amt":
                 header_name = "amount"
             individual[header_name] = " ".join(header_value.text.split())
+            if header_name == "contributor":
+                x = header_value.find_all('font')
+                for i in x:
+                    print(i.contents)
         data_set.append(individual)
     return data_set
 
 def sort_politics(response):
-    print(response)
     total_contr = response[-1]['amount']
+    print(total_contr)
     del response[-1]
     sorted = []
     for k, v in groupby(response, key=lambda x: x['contributor']):
@@ -38,6 +43,7 @@ def sort_politics(response):
         r = {x:0 for x in response[0].keys()}
         r['contributor'] = contributions[0]['contributor']
         r['recipient'] = contributions[0]['recipient']
+        #name = re.findall(r'', r['contributor'])
         earliest_date = datetime.strptime(contributions[0]['contr_date'], '%d-%b-%y')
         recent_date = earliest_date
         for contribution in contributions:
@@ -45,14 +51,13 @@ def sort_politics(response):
             if date_of_contr > recent_date:
                 recent_date = date_of_contr
             if date_of_contr < earliest_date:
-                earliest_date =  date_of_contr
+                earliest_date = date_of_contr
             r['amount'] = r['amount'] + float(contribution['amount'].replace(",", ""))
         if earliest_date == recent_date:
             r['contr_date'] = ("{0}".format(earliest_date.strftime("%d-%b-%y")))
         else:
             r['contr_date'] = ("{0}\n -\n{1}".format(earliest_date.strftime("%d-%b-%y"), recent_date.strftime("%d-%b-%y")))
         sorted.append(r)
-    print(sorted)
     return sorted
 
 
@@ -63,8 +68,7 @@ def write_csv(donations):
         writer.writeheader()
         writer.writerows(donations)
 
-donations = get_donations()
-print(sort_politics(donations))
+
 write_csv(sort_politics(get_donations()))
 
 """p = 0
