@@ -12,37 +12,48 @@ def get_donations():
     page = requests.get(url)
     soup = BeautifulSoup(page.content, 'html.parser')
 
-    results = soup.find('div', id='cfContent')
     donations = soup.find_all('tr')
     headers = [str(e.string).lower() for e in donations[1].find_all('th')]
-    donations = donations[2:]
+    total_donations = donations[-1]
+    donations = donations[2:-1]
     data_set = []
     for donation in donations:
         attr = donation.find_all('td')
-        individual = {}
+        entry = {}
         for header_name, header_value in zip(headers, attr):
             if header_name == "contr. date":
                 header_name = "contr_date"
+
             elif header_name == "amt":
                 header_name = "amount"
-            individual[header_name] = " ".join(header_value.text.split())
+            if header_name != "contributor":
+                entry[header_name] = str(header_value.text).strip()
             if header_name == "contributor":
-                x = header_value.find_all('font')
-                for i in x:
-                    r = 0
-                    for y in i:
-                        if "<b>" and "</b>" and "<br/>" not in str(y).strip():
-                            print("{0}: {1}".format(r, str(y)))
-                            r+=1
-        data_set.append(individual)
+                for i in header_value:
+                    i = [str(y).strip() for y in i if "<br/>" not in str(y).strip()]
+                    entry['name'] = i[0]
+                    entry['address'] = i[1]
+                    entry['locale'] = i[2]
+
+        data_set.append(entry)
     return data_set
 
 def sort_politics(response):
     total_contr = response[-1]['amount']
-    #print(total_contr)
+    print(total_contr)
     del response[-1]
     sorted = []
-    for k, v in groupby(response, key=lambda x: x['contributor']):
+    """
+    for i in header_value.find_all('font'):
+        i = [str(y).strip() for y in i if "<br/>" not in str(y).strip()]
+        name = i[0]
+        if "," in name:
+            last_name, first_name = name.split(",", 1)
+            print(first_name)
+        address = i[1]
+        locale = i[2]"""
+    print(response)
+    """for k, v in groupby(response, key=lambda x: x['contributor']):
         contributions = list(v)
         r = {x:0 for x in response[0].keys()}
         r['contributor'] = contributions[0]['contributor']
@@ -61,7 +72,7 @@ def sort_politics(response):
             r['contr_date'] = ("{0}".format(earliest_date.strftime("%d-%b-%y")))
         else:
             r['contr_date'] = ("{0}\n -\n{1}".format(earliest_date.strftime("%d-%b-%y"), recent_date.strftime("%d-%b-%y")))
-        sorted.append(r)
+        sorted.append(r)"""
     return sorted
 
 
@@ -73,7 +84,7 @@ def write_csv(donations):
         writer.writerows(donations)
 
 
-write_csv(sort_politics(get_donations()))
+print(sort_politics(get_donations()))
 
 """p = 0
 with open('campaign_donations.csv', 'w', newline='', encoding='utf-8') as file:
