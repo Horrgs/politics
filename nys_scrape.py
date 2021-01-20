@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import csv
 from itertools import groupby
 from datetime import datetime
-import re
 
 
 def get_donations():
@@ -28,8 +27,7 @@ def get_donations():
             elif header_name == "amt":
                 header_name = "amount"
             if header_name != "contributor":
-                print(type(header_value.text))
-                entry[header_name] = str(header_value.text).strip()
+                entry[header_name] = header_value.text.strip()
             if header_name == "contributor":
                 for i in header_value:
                     i = [str(y).strip() for y in i if "<br/>" not in str(y).strip()]
@@ -45,34 +43,29 @@ def get_donations():
     data_set.append(total_donations)
     return data_set
 
+
 def sort_politics(response):
     total_contr = response[-1]['amount']
     print(total_contr)
     del response[-1]
-    sorted = []
+    names = [v for dic in response for k, v in dic.items() if k == 'name']
+    first_name = names[0]
+    second_name = ""
+    for name in names:
+        if name == first_name:
+            continue
+        if name >= second_name:
+            second_name = name
+        elif name <= second_name:
+            print("start's over with {0}".format(name))
+            second_name = name
+            break
+        continue
+    businesses = response[0:names.index(second_name)]
+    individuals = response[names.index(second_name):]
 
-    print(response)
-    """for k, v in groupby(response, key=lambda x: x['contributor']):
-        contributions = list(v)
-        r = {x:0 for x in response[0].keys()}
-        r['contributor'] = contributions[0]['contributor']
-        r['recipient'] = contributions[0]['recipient']
-        #name = re.findall(r'', r['contributor'])
-        earliest_date = datetime.strptime(contributions[0]['contr_date'], '%d-%b-%y')
-        recent_date = earliest_date
-        for contribution in contributions:
-            date_of_contr = datetime.strptime(contribution['contr_date'], '%d-%b-%y')
-            if date_of_contr > recent_date:
-                recent_date = date_of_contr
-            if date_of_contr < earliest_date:
-                earliest_date = date_of_contr
-            r['amount'] = r['amount'] + float(contribution['amount'].replace(",", ""))
-        if earliest_date == recent_date:
-            r['contr_date'] = ("{0}".format(earliest_date.strftime("%d-%b-%y")))
-        else:
-            r['contr_date'] = ("{0}\n -\n{1}".format(earliest_date.strftime("%d-%b-%y"), recent_date.strftime("%d-%b-%y")))
-        sorted.append(r)"""
-    return sorted
+
+sort_politics(get_donations())
 
 
 def write_csv(donations):
