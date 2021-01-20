@@ -5,6 +5,7 @@ from itertools import groupby
 from datetime import datetime
 import re
 
+
 def get_donations():
     url = ('https://cfapp.elections.ny.gov/ords/plsql_browser/CONTRIBUTORA_COUNTY?ID_in=C87477&' +
            'date_From=01/01/2006&date_to=01/15/2021&AMOUNT_From=1&AMOUNT_to=10000000&ZIP1=00501&' +
@@ -14,7 +15,8 @@ def get_donations():
 
     donations = soup.find_all('tr')
     headers = [str(e.string).lower() for e in donations[1].find_all('th')]
-    total_donations = donations[-1]
+    total = donations[-1]
+    total = list(filter(None, [p.string.strip() for p in total]))[1:]
     donations = donations[2:-1]
     data_set = []
     for donation in donations:
@@ -36,6 +38,11 @@ def get_donations():
                     entry['locale'] = i[2]
 
         data_set.append(entry)
+    total_donations = {k: "" for k, v in data_set[0].items()}
+    total_donations['name'] = "TOTAL DONATIONS"
+    total_donations['amount'] = total[0]
+    print(total_donations)
+    data_set.append(total_donations)
     return data_set
 
 def sort_politics(response):
@@ -43,15 +50,7 @@ def sort_politics(response):
     print(total_contr)
     del response[-1]
     sorted = []
-    """
-    for i in header_value.find_all('font'):
-        i = [str(y).strip() for y in i if "<br/>" not in str(y).strip()]
-        name = i[0]
-        if "," in name:
-            last_name, first_name = name.split(",", 1)
-            print(first_name)
-        address = i[1]
-        locale = i[2]"""
+
     print(response)
     """for k, v in groupby(response, key=lambda x: x['contributor']):
         contributions = list(v)
@@ -76,7 +75,6 @@ def sort_politics(response):
     return sorted
 
 
-
 def write_csv(donations):
     with open('campaign_donations.csv', 'w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, donations[0].keys())
@@ -84,27 +82,4 @@ def write_csv(donations):
         writer.writerows(donations)
 
 
-print(sort_politics(get_donations()))
-
-"""p = 0
-with open('campaign_donations.csv', 'w', newline='', encoding='utf-8') as file:
-    writer = csv.writer(file)
-    writer.writerow(["Contributor", "Amount", "Date of Donation", "Recipient", "Date of Report to F.E.C."])
-    for i in donations:
-        state_name = i.find('caption').text.strip()
-
-        members = i.find('tbody').find_all('tr')
-        print(state_name)
-
-        for member in members:
-            district, name, party, office, phone, assignment = [e.text.strip() for e in member.find_all('td')]
-            if ',' in name:
-                kr = name.split(",")
-                first_name = kr[1].strip()
-                last_name = kr[0].strip()
-            else:
-                first_name = name
-                last_name = ""
-            writer.writerow([first_name, last_name, state_name, district, party, phone])
-
-"""
+write_csv(get_donations())
