@@ -14,9 +14,8 @@ def get_donations():
     soup = BeautifulSoup(page.content, 'html.parser')
 
     donations = soup.find_all('tr')
-    headers = [str(e.string).lower() for e in donations[1].find_all('th')]
-    total = donations[-1]
-    total = list(filter(None, [p.string.strip() for p in total]))[1:]
+    headers = [e.string.lower() for e in donations[1].find_all('th')]
+    total = str(list(filter(None, [p.string.strip() for p in donations[-1]]))[-1])
     donations = donations[2:-1]
     data_set = []
     for donation in donations:
@@ -29,6 +28,7 @@ def get_donations():
             elif header_name == "amt":
                 header_name = "amount"
             if header_name != "contributor":
+                print(type(header_value.text))
                 entry[header_name] = str(header_value.text).strip()
             if header_name == "contributor":
                 for i in header_value:
@@ -40,7 +40,7 @@ def get_donations():
         data_set.append(entry)
     total_donations = {k: "" for k, v in data_set[0].items()}
     total_donations['name'] = "TOTAL DONATIONS"
-    total_donations['amount'] = total[0]
+    total_donations['amount'] = total
     print(total_donations)
     data_set.append(total_donations)
     return data_set
