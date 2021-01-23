@@ -38,9 +38,9 @@ def get_donations(search_type: SearchType, candidate_id):
 
             elif header_name == "amt":
                 header_name = "amount"
-            if header_name != "contributor":
+            if header_name != "contributor" and header_name.replace("/", "").lower() != "payeerecipient":
                 entry[header_name] = header_value.text.strip()
-            if header_name == "contributor" or header_name == "Payee/Recipient":
+            if header_name == "contributor" or header_name.replace("/", "").lower() == "payeerecipient":
                 for i in header_value:
                     i = [str(y).strip() for y in i if "<br/>" not in str(y).strip()]
                     entry['name'] = i[0]
@@ -49,7 +49,7 @@ def get_donations(search_type: SearchType, candidate_id):
 
         data_set.append(entry)
     total_donations = {k: "" for k, v in data_set[0].items()}
-    total_donations['name'] = "TOTAL DONATIONS"
+    total_donations['name'] = "TOTAL {0}".format(search_type.name)
     total_donations['amount'] = total
     data_set.append(total_donations)
     return data_set
@@ -87,7 +87,6 @@ if __name__ == '__main__':
     c_or_e = None
     while True:
         try:
-            # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
             print("\n")
             c_or_e = input("Would you like to search campaign contributions, expenditures, or both?\n" +
                            "Enter C for contributions, E for expenditures, or B for both.\n" +
@@ -98,8 +97,6 @@ if __name__ == '__main__':
             print("Sorry, I didn't understand that.")
             continue
         else:
-            # age was successfully parsed!
-            # we're ready to exit the loop.
             break
     print("\n\n\n")
     while True:
@@ -126,7 +123,8 @@ if __name__ == '__main__':
                         write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, c_id), c_id)
                         write_csv('expenses', get_donations(SearchType.EXPENSES, c_id), c_id)
                 else:
-                    print("unfortunately")
+                    print("Sorry, I didn't understand that.")
+                    continue
         else:
             candidate_id = candidate_id.strip()
             if re.match('^[a-zA-Z0-9_]{6}$', candidate_id):
@@ -138,24 +136,6 @@ if __name__ == '__main__':
                     write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, candidate_id), candidate_id)
                     write_csv('expenses', get_donations(SearchType.EXPENSES, candidate_id), candidate_id)
             else:
-                print("this ran :(")
-
-        try:
-            # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
-            print("This next part requires some work on your part. Head to \n" +
-                  "https://cfapp.elections.ny.gov/ords/plsql_browser/all_filers and use CTRL+F to search for \n"
-                  "the person of interest.")
-            print("Alternatively, an easier method is to search by county. This is limited to ACTIVE filers.")
-            print("Link here: https://www.elections.ny.gov/regbycounty.html")
-            print("Copy and paste their unique ID, which will be the first line above their name.")
-            print("It should look like C01065 or A01065")
-            print("NOTE: A candidate may have more than one ID, separate them with commas as such:")
-            print("C01065, A01065")
-            candidate_id = input("Enter the candidate ID:")
-        except ValueError:
-            print("Sorry, I didn't understand that.")
-            continue
-        else:
-            # age was successfully parsed!
-            # we're ready to exit the loop.
-            break
+                print("Sorry, I didn't understand that.")
+                continue
+        break
