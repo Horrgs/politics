@@ -3,12 +3,24 @@ from bs4 import BeautifulSoup
 import csv
 from itertools import groupby
 from datetime import datetime
+import re
+from enum import Enum
+
+class SearchType(Enum):
+    CONTRIBUTOR = 0
+    EXPENSES = 1
 
 
-def get_donations():
-    url = ('https://cfapp.elections.ny.gov/ords/plsql_browser/CONTRIBUTORA_COUNTY?ID_in=C87477&' +
+def get_donations(search_type: SearchType, candidate_id):
+    url = ('https://cfapp.elections.ny.gov/ords/plsql_browser/{0}A_COUNTY?ID_in={1}&' +
            'date_From=01/01/2006&date_to=01/15/2021&AMOUNT_From=1&AMOUNT_to=10000000&ZIP1=00501&' +
-           'ZIP2=99950&ORDERBY_IN=N&CATEGORY_IN=ALL')
+           'ZIP2=99950&ORDERBY_IN=N').format(search_type.name, candidate_id.strip())
+    if search_type == SearchType.CONTRIBUTOR:
+        url += "&CATEGORY_IN=ALL"
+    elif search_type == SearchType.EXPENSES:
+        url += "&OFFICE_in=ALL"
+
+    print(url)
     page = requests.get(url)
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -28,7 +40,7 @@ def get_donations():
                 header_name = "amount"
             if header_name != "contributor":
                 entry[header_name] = header_value.text.strip()
-            if header_name == "contributor":
+            if header_name == "contributor" or header_name == "Payee/Recipient":
                 for i in header_value:
                     i = [str(y).strip() for y in i if "<br/>" not in str(y).strip()]
                     entry['name'] = i[0]
@@ -39,7 +51,6 @@ def get_donations():
     total_donations = {k: "" for k, v in data_set[0].items()}
     total_donations['name'] = "TOTAL DONATIONS"
     total_donations['amount'] = total
-    print(total_donations)
     data_set.append(total_donations)
     return data_set
 
@@ -57,7 +68,6 @@ def sort_politics(response):
         if name >= second_name:
             second_name = name
         elif name <= second_name:
-            print("start's over with {0}".format(name))
             second_name = name
             break
         continue
@@ -65,14 +75,87 @@ def sort_politics(response):
     individuals = response[names.index(second_name):]
 
 
-sort_politics(get_donations())
-
-
-def write_csv(donations):
-    with open('campaign_donations.csv', 'w', newline='', encoding='utf-8') as file:
+def write_csv(search, donations, po_id):
+    with open('campaign_{0}_{1}.csv'.format(search, po_id), 'w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, donations[0].keys())
         writer.writeheader()
         writer.writerows(donations)
 
 
-write_csv(get_donations())
+if __name__ == '__main__':
+    print("Welcome to NYS Campaign Contribution and Expenditure search")
+    c_or_e = None
+    while True:
+        try:
+            # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
+            print("\n")
+            c_or_e = input("Would you like to search campaign contributions, expenditures, or both?\n" +
+                           "Enter C for contributions, E for expenditures, or B for both.\n" +
+                           "Not case sensitive.")
+            if c_or_e.lower() != "c" and c_or_e.lower() != "e" and c_or_e != "b":
+                raise ValueError
+        except ValueError:
+            print("Sorry, I didn't understand that.")
+            continue
+        else:
+            # age was successfully parsed!
+            # we're ready to exit the loop.
+            break
+    print("\n\n\n")
+    while True:
+        print("This next part requires some work on your part. Head to \n" +
+              "https://cfapp.elections.ny.gov/ords/plsql_browser/all_filers and use CTRL+F to search for \n"
+              "the person of interest.")
+        print("Alternatively, an easier method is to search by county. This is limited to ACTIVE filers.")
+        print("Link here: https://www.elections.ny.gov/regbycounty.html")
+        print("Copy and paste their unique ID, which will be the first line above their name.")
+        print("It should look like C01065 or A01065")
+        print("NOTE: A candidate may have more than one ID, separate them with commas as such:")
+        print("C01065, A01065")
+        candidate_id = input("Enter the candidate ID:")
+        if ',' in candidate_id:
+            candidate_id = candidate_id.split(",")
+            for c_id in candidate_id:
+                c_id = c_id.strip()
+                if re.match('^[a-zA-Z0-9_]{6}$', c_id):
+                    if c_or_e.lower() == 'c':
+                        write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, c_id), c_id)
+                    elif c_or_e.lower() == 'e':
+                        write_csv('expenses', get_donations(SearchType.EXPENSES, c_id), c_id)
+                    elif c_or_e.lower() == 'b':
+                        write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, c_id), c_id)
+                        write_csv('expenses', get_donations(SearchType.EXPENSES, c_id), c_id)
+                else:
+                    print("unfortunately")
+        else:
+            candidate_id = candidate_id.strip()
+            if re.match('^[a-zA-Z0-9_]{6}$', candidate_id):
+                if c_or_e.lower() == 'c':
+                    write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, candidate_id), candidate_id)
+                elif c_or_e.lower() == 'e':
+                    write_csv('expenses', get_donations(SearchType.EXPENSES, candidate_id), candidate_id)
+                elif c_or_e.lower() == 'b':
+                    write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, candidate_id), candidate_id)
+                    write_csv('expenses', get_donations(SearchType.EXPENSES, candidate_id), candidate_id)
+            else:
+                print("this ran :(")
+
+        try:
+            # Note: Python 2.x users should use raw_input, the equivalent of 3.x's input
+            print("This next part requires some work on your part. Head to \n" +
+                  "https://cfapp.elections.ny.gov/ords/plsql_browser/all_filers and use CTRL+F to search for \n"
+                  "the person of interest.")
+            print("Alternatively, an easier method is to search by county. This is limited to ACTIVE filers.")
+            print("Link here: https://www.elections.ny.gov/regbycounty.html")
+            print("Copy and paste their unique ID, which will be the first line above their name.")
+            print("It should look like C01065 or A01065")
+            print("NOTE: A candidate may have more than one ID, separate them with commas as such:")
+            print("C01065, A01065")
+            candidate_id = input("Enter the candidate ID:")
+        except ValueError:
+            print("Sorry, I didn't understand that.")
+            continue
+        else:
+            # age was successfully parsed!
+            # we're ready to exit the loop.
+            break
