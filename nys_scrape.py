@@ -73,6 +73,34 @@ def sort_politics(response):
         continue
     businesses = response[0:names.index(second_name)]
     individuals = response[names.index(second_name):]
+    businesses_ = []
+    for k, v in groupby(businesses, key=lambda x: x['address']):
+        contributions = list(v)
+        print(k)
+        r = {x: y for x, y in contributions[0].items()}
+        r['amount'] = 0
+        r.pop('name', None)
+        r['names'] = []
+        r['recipient'] = contributions[0]['recipient']
+        earliest_date = datetime.strptime(contributions[0]['contr_date'], '%d-%b-%y')
+        recent_date = earliest_date
+        for contribution in contributions:
+            if contribution['name'] not in r['names']:
+                r['names'].append(contribution['name'])
+            date_of_contr = datetime.strptime(contribution['contr_date'], '%d-%b-%y')
+            if date_of_contr > recent_date:
+                recent_date = date_of_contr
+            if date_of_contr < earliest_date:
+                earliest_date = date_of_contr
+            r['amount'] = r['amount'] + float(contribution['amount'].replace(",", ""))
+        if earliest_date == recent_date:
+            r['contr_date'] = ("{0}".format(earliest_date.strftime("%d-%b-%y")))
+        else:
+            r['contr_date'] = (
+                "{0}\n -\n{1}".format(earliest_date.strftime("%d-%b-%y"), recent_date.strftime("%d-%b-%y")))
+        businesses_.append(r)
+    print(businesses_)
+    return businesses_
 
 
 def write_csv(search, donations, po_id):
@@ -82,6 +110,10 @@ def write_csv(search, donations, po_id):
         writer.writerows(donations)
 
 
+sort_politics(get_donations(SearchType.CONTRIBUTOR, "C87477"))
+
+
+"""
 if __name__ == '__main__':
     print("Welcome to NYS Campaign Contribution and Expenditure search")
     c_or_e = None
@@ -139,3 +171,4 @@ if __name__ == '__main__':
                 print("Sorry, I didn't understand that.")
                 continue
         break
+"""
