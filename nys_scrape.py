@@ -6,6 +6,7 @@ from datetime import datetime
 import re
 from enum import Enum
 
+
 class SearchType(Enum):
     CONTRIBUTOR = 0
     EXPENSES = 1
@@ -44,7 +45,7 @@ def get_donations(search_type: SearchType, candidate_id):
                 for i in header_value:
                     i = [str(y).strip() for y in i if "<br/>" not in str(y).strip()]
                     entry['name'] = i[0]
-                    entry['address'] = i[1]
+                    entry['address'] = " ".join(i[1].split())
                     entry['locale'] = i[2]
 
         data_set.append(entry)
@@ -55,9 +56,8 @@ def get_donations(search_type: SearchType, candidate_id):
     return data_set
 
 
-def sort_politics(response):
+def split_donations(response):
     total_contr = response[-1]['amount']
-    print(total_contr)
     del response[-1]
     names = [v for dic in response for k, v in dic.items() if k == 'name']
     first_name = names[0]
@@ -71,49 +71,56 @@ def sort_politics(response):
             second_name = name
             break
         continue
-    businesses = response[0:names.index(second_name)]
+    businesses = sorted(response[0:names.index(second_name)], key=lambda x: x['address'])
     individuals = response[names.index(second_name):]
-    businesses_ = []
-    for k, v in groupby(businesses, key=lambda x: x['address']):
+    return {'businesses': businesses, 'individuals': individuals, 'total': total_contr}
+
+
+def sort_politics(category):
+    curated = []
+    for k, v in groupby(category, key=lambda x: x['address']):
         contributions = list(v)
-        print(k)
-        r = {x: y for x, y in contributions[0].items()}
-        r['amount'] = 0
-        r.pop('name', None)
-        r['names'] = []
-        r['recipient'] = contributions[0]['recipient']
-        earliest_date = datetime.strptime(contributions[0]['contr_date'], '%d-%b-%y')
-        recent_date = earliest_date
-        for contribution in contributions:
-            if contribution['name'] not in r['names']:
-                r['names'].append(contribution['name'])
-            date_of_contr = datetime.strptime(contribution['contr_date'], '%d-%b-%y')
-            if date_of_contr > recent_date:
-                recent_date = date_of_contr
-            if date_of_contr < earliest_date:
-                earliest_date = date_of_contr
-            r['amount'] = r['amount'] + float(contribution['amount'].replace(",", ""))
-        if earliest_date == recent_date:
-            r['contr_date'] = ("{0}".format(earliest_date.strftime("%d-%b-%y")))
-        else:
-            r['contr_date'] = (
-                "{0}\n -\n{1}".format(earliest_date.strftime("%d-%b-%y"), recent_date.strftime("%d-%b-%y")))
-        businesses_.append(r)
-    print(businesses_)
-    return businesses_
+        if len(contributions) > 0:
+            r = {x: y for x, y in contributions[0].items()}
+            r['name'] = []
+            r['amount'] = 0
+            r['recipient'] = contributions[0]['recipient']
+
+            earliest_date = datetime.strptime(contributions[0]['contr_date'], '%d-%b-%y')
+            recent_date = earliest_date
+
+            for contribution in contributions:
+                if contribution['name'] not in r['name']:
+                    r['name'].append(contribution['name'])
+
+                date_of_contr = datetime.strptime(contribution['contr_date'], '%d-%b-%y')
+                if date_of_contr > recent_date:
+                    recent_date = date_of_contr
+                if date_of_contr < earliest_date:
+                    earliest_date = date_of_contr
+
+                r['amount'] = r['amount'] + float(contribution['amount'].replace(",", ""))
+
+            if earliest_date == recent_date:
+                r['contr_date'] = ("{0}".format(earliest_date.strftime("%d-%b-%y")))
+            else:
+                r['contr_date'] = (
+                    "{0}\n-\n{1}".format(earliest_date.strftime("%d-%b-%y"), recent_date.strftime("%d-%b-%y")))
+            if len(r['name']) > 1:
+                r['name'] = ',\n'.join(r['name'])
+            else:
+                r['name'] = r['name'][0]
+            curated.append(r)
+    return curated
 
 
 def write_csv(search, donations, po_id):
-    with open('campaign_{0}_{1}.csv'.format(search, po_id), 'w', newline='', encoding='utf-8') as file:
+    with open('campaign_{0}_{1}.csv'.format(search.name, po_id), 'w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, donations[0].keys())
         writer.writeheader()
         writer.writerows(donations)
 
 
-sort_politics(get_donations(SearchType.CONTRIBUTOR, "C87477"))
-
-
-"""
 if __name__ == '__main__':
     print("Welcome to NYS Campaign Contribution and Expenditure search")
     c_or_e = None
@@ -148,12 +155,12 @@ if __name__ == '__main__':
                 c_id = c_id.strip()
                 if re.match('^[a-zA-Z0-9_]{6}$', c_id):
                     if c_or_e.lower() == 'c':
-                        write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, c_id), c_id)
+                        write_csv(SearchType.CONTRIBUTOR, get_donations(SearchType.CONTRIBUTOR, c_id), c_id)
                     elif c_or_e.lower() == 'e':
-                        write_csv('expenses', get_donations(SearchType.EXPENSES, c_id), c_id)
+                        write_csv(SearchType.EXPENSES, get_donations(SearchType.EXPENSES, c_id), c_id)
                     elif c_or_e.lower() == 'b':
-                        write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, c_id), c_id)
-                        write_csv('expenses', get_donations(SearchType.EXPENSES, c_id), c_id)
+                        write_csv(SearchType.CONTRIBUTOR, get_donations(SearchType.CONTRIBUTOR, c_id), c_id)
+                        write_csv(SearchType.EXPENSES, get_donations(SearchType.EXPENSES, c_id), c_id)
                 else:
                     print("Sorry, I didn't understand that.")
                     continue
@@ -161,14 +168,13 @@ if __name__ == '__main__':
             candidate_id = candidate_id.strip()
             if re.match('^[a-zA-Z0-9_]{6}$', candidate_id):
                 if c_or_e.lower() == 'c':
-                    write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, candidate_id), candidate_id)
+                    write_csv(SearchType.CONTRIBUTOR, get_donations(SearchType.CONTRIBUTOR, candidate_id), candidate_id)
                 elif c_or_e.lower() == 'e':
-                    write_csv('expenses', get_donations(SearchType.EXPENSES, candidate_id), candidate_id)
+                    write_csv(SearchType.EXPENSES, get_donations(SearchType.EXPENSES, candidate_id), candidate_id)
                 elif c_or_e.lower() == 'b':
-                    write_csv('contributions', get_donations(SearchType.CONTRIBUTOR, candidate_id), candidate_id)
-                    write_csv('expenses', get_donations(SearchType.EXPENSES, candidate_id), candidate_id)
+                    write_csv(SearchType.CONTRIBUTOR, get_donations(SearchType.CONTRIBUTOR, candidate_id), candidate_id)
+                    write_csv(SearchType.EXPENSES, get_donations(SearchType.EXPENSES, candidate_id), candidate_id)
             else:
                 print("Sorry, I didn't understand that.")
                 continue
         break
-"""
