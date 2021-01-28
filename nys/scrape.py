@@ -91,8 +91,3 @@ def get_filers(govt_level: GovtLevel, status: Status, date_from, date_to, filer_
         session.headers = headers
         rew = session.post(url, headers=headers, params=payload)
     return json.loads(rew.text)
-
-
-d = datetime(year=2010, month=8, day=1)
-d_t = datetime(year=2020, month=8, day=1)
-print(get_filers(GovtLevel.STATE, Status.ACTIVE, d, d_t, Filer.CANDIDATE))
