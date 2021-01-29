@@ -52,6 +52,14 @@ def get_committees():
     return Enum('Committee', get(url))
 
 
+def get_municipality(county_id):
+    url = "https://publicreporting.elections.ny.gov/ActiveDeactiveFiler/GetMunicipality"
+    payload = {
+        "lstUCCounty": str(county_id)
+    }
+    return Enum('Municipality', get(url, payload))
+
+
 def get_filers(govt_level: GovtLevel, status: Status, date_from, date_to, filer_type: Filer, **kwargs):
     url = "https://publicreporting.elections.ny.gov/ActiveDeactiveFiler/GetSearchListOfFilersData"
     headers = {
