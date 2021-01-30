@@ -33,7 +33,7 @@ def get(url, payload=None):
 
 def get_counties():
     url = "https://publicreporting.elections.ny.gov/ActiveDeactiveFiler/GetCounty"
-    return Enum('County', get(url))
+    return get(url)
 
 
 def get_offices(govt_level: GovtLevel):
@@ -57,7 +57,7 @@ def get_municipality(county_id):
     payload = {
         "lstUCCounty": str(county_id)
     }
-    return Enum('Municipality', get(url, payload))
+    return get(url, payload)
 
 
 def get_filers(govt_level: GovtLevel, status: Status, date_from, date_to, filer_type: Filer, **kwargs):
