@@ -51,21 +51,22 @@ class Central:
 
 
 class CountySearch(Central):
+    municipality = None
 
     def __init__(self, root):
         frame = ttk.Frame(root)
         counties = scrape.get_counties()
-        counties = {str(name).split(".")[-1]: name.value for name in counties}
+        counties = list(counties.keys())
         county_label = Label(frame, text='Select County: ')
 
         county = StringVar(frame)
         county.set("ALL")  # default value
-        counties = list(counties.keys())
         counties.insert(0, "ALL")
-        w = OptionMenu(frame, county, *counties, command=get_selection)
+
+        util = Utils()
+        w = OptionMenu(frame, county, *counties, command=lambda _: self.show_municipalities(county.get()))
 
         submit = Button(frame, text="Submit", command=lambda: ok(frame, county))
-        util = Utils()
         frame.grid(column=0, row=0)
         county_label.grid(column=0, row=0)
         w.grid(column=1, row=0)
@@ -77,6 +78,30 @@ class CountySearch(Central):
         print(county.get())
         self.frame = frame
         self.root = root
+
+    def show_municipalities(self, selection):
+        if self.is_advanced():
+            county = scrape.get_counties()
+            municipalities = scrape.get_municipality(county[selection])
+            municipalities = list(municipalities.keys())
+
+            if self.municipality is not None:
+                self.municipality.grid_forget()
+            else:
+                for widget in self.get_frame().winfo_children():
+                    if 'row' in widget.grid_info() and widget.grid_info()['row'] > 0:
+                        widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
+
+                lbl_municipalities = Label(self.get_frame(), text="Municipalities: ")
+                lbl_municipalities.grid(column=0, row=1)
+
+            muni = StringVar(self.get_frame())
+            muni.set("ALL")  # default value
+            municipalities.insert(0, "ALL")
+            self.municipality = OptionMenu(self.get_frame(), muni, *municipalities, command=get_selection)
+
+            self.municipality.grid(column=1, row=1)
+
 
 
 class Utils:
@@ -93,10 +118,6 @@ class Utils:
                     else:
                         text = "Advanced Settings"
                 widget.grid_forget()
-            elif type(widget) is OptionMenu:
-                if program.is_advanced():
-                    # change Option Menu command.
-                    pass
 
         if program.is_advanced():
             status_label = Label(program.get_frame(), text="Status: ")
@@ -155,20 +176,6 @@ def ok(frame, variable):
     frame.destroy()
 
 
-def show_municipalities(root, frame, selection):
-    for widget in root.winfo_children():
-        if widget.grid_info()['row'] > 0:
-            widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
-
-    municipalities = scrape.get_municipality(1)
-    municipalities = {str(name).split(".")[-1]: name.value for name in municipalities}
-    lbl_municipalities = Label(frame, text="Municipalities: ")
-
-    county = StringVar(frame)
-    county.set("ALL")  # default value
-    counties = list(municipalities.keys())
-    counties.insert(0, "ALL")
-    w = OptionMenu(frame, county, *counties, command=get_selection)
 
 
 st = Central()
