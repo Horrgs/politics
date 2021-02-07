@@ -1,13 +1,37 @@
 from tkinter import *
 from tkinter import ttk
+from tkcalendar import DateEntry
 from nys import scrape
-from nys.scrape import GovtLevel
+from nys.scrape import *
+
+
+class Search:
+    govt_level, filer, status, registered = None, None, None, None
+
+    county, municipality, date_range_data = "ALL", None, {}
+
+    def __init__(self, govt_level: GovtLevel, **kwargs):
+        self.govt_level = govt_level
+        self.filer = Filer.ALL.name
+        self.status = Status.ALL.name
+        self.registered = Registered.ALL.name
+
+    def update(self, name, value, **kwargs):
+        print("ran for {0}".format(name))
+        if name == "registered":
+            print(value)
+            self.registered = Registered[value.replace(" ", "_").upper()]
+            if self.registered == Registered.DATE_RANGE:
+                print("poooo")
+        elif name == self.registered:
+            print("ran")
+            self.date_range_data[value] = kwargs.get('date')
+        else:
+            setattr(self, name, value)
 
 
 class Central:
-
-    root = None
-    frame = None
+    root, frame = None, None
     advanced = False
 
     def __init__(self):
@@ -19,16 +43,14 @@ class Central:
         frame = ttk.Frame(root)
         context = Label(frame, text="Search State or County records.")
 
-        def get_county():
+        def update_search(govt_level):
+            search = Search(govt_level)
             frame.destroy()
-            return CountySearch(root)
+            if govt_level == GovtLevel.COUNTY:
+                CountySearch(search, self).county_search()
 
-        def get_state():
-            frame.destroy()
-            return None
-
-        state = Button(frame, text='State', command=get_state)
-        county = Button(frame, text='County', command=get_county)
+        state = Button(frame, text='State', command=lambda: update_search(GovtLevel.STATE))
+        county = Button(frame, text='County', command=lambda: update_search(GovtLevel.COUNTY))
 
         frame.grid(column=0, row=0)
         context.grid(column=0, row=0, columnspan=2)
@@ -37,114 +59,123 @@ class Central:
         self.frame = frame
         self.root = root
 
-    def is_advanced(self):
-        return self.advanced
 
-    def set_advanced_state(self, advanced):
-        self.advanced = advanced
-        
-    def get_frame(self):
-        return self.frame
-
-    def get_root(self):
-        return self.root
-
-
-class CountySearch(Central):
+class CountySearch:
     municipality = None
+    central = None
+    search = None
 
-    def __init__(self, root):
-        frame = ttk.Frame(root)
+    def __init__(self, search: Search, central: Central):
+        self.search = search
+        self.central = central
+
+    def county_search(self):
+        self.central.frame.destroy()
+
+        frame = ttk.Frame(self.central.root)
         counties = scrape.get_counties()
         counties = list(counties.keys())
         county_label = Label(frame, text='Select County: ')
 
         county = StringVar(frame)
-        county.set("ALL")  # default value
+        county.set(self.search.county)
         counties.insert(0, "ALL")
 
         util = Utils()
-        w = OptionMenu(frame, county, *counties, command=lambda _: self.show_municipalities(county.get()))
+        county_selection = OptionMenu(frame, county, *counties, command=lambda _:
+                                      util.show_municipalities(self.central, self.search, county.get()))
 
-        submit = Button(frame, text="Submit", command=lambda: ok(frame, county))
+        submit_btn = Button(frame, text="Submit", command=lambda: submit(self.search))
+        advanced = Button(frame, text="Advanced Settings", command=lambda:
+                          util.toggle_advanced_settings(self.central, self.search))
+
         frame.grid(column=0, row=0)
         county_label.grid(column=0, row=0)
-        w.grid(column=1, row=0)
-        submit.grid(column=0, row=1, columnspan=2)
-        advanced = Button(frame,
-                          text="Advanced Settings",
-                          command=lambda: util.toggle_advanced_settings(self, GovtLevel.COUNTY))
+        county_selection.grid(column=1, row=0)
+        submit_btn.grid(column=0, row=1, columnspan=2)
         advanced.grid(column=0, row=2, columnspan=2)
-        print(county.get())
-        self.frame = frame
-        self.root = root
-
-    def show_municipalities(self, selection):
-        if self.is_advanced():
-            county = scrape.get_counties()
-            municipalities = scrape.get_municipality(county[selection])
-            municipalities = list(municipalities.keys())
-
-            if self.municipality is not None:
-                self.municipality.grid_forget()
-            else:
-                for widget in self.get_frame().winfo_children():
-                    if 'row' in widget.grid_info() and widget.grid_info()['row'] > 0:
-                        widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
-
-                lbl_municipalities = Label(self.get_frame(), text="Municipalities: ")
-                lbl_municipalities.grid(column=0, row=1)
-
-            muni = StringVar(self.get_frame())
-            muni.set("ALL")  # default value
-            municipalities.insert(0, "ALL")
-            self.municipality = OptionMenu(self.get_frame(), muni, *municipalities, command=get_selection)
-
-            self.municipality.grid(column=1, row=1)
-
+        self.central.frame = frame
+        return self.central.frame
 
 
 class Utils:
+    lbl_municipalities = None
+    municipality = None
 
-    def toggle_advanced_settings(self, program, govt_level):
+    date_from_cal, date_to_cal = None, None
+    date_from_lbl, date_to_lbl = None, None
+
+    def show_municipalities(self, central, search, county):
+        search.update('county', county)
+        if central.advanced:
+            if county.lower() == "ALL".lower():
+                self.municipality.grid_forget()
+                self.lbl_municipalities.grid_forget()
+            else:
+                municipalities = scrape.get_municipality(scrape.get_counties()[county])
+                municipalities = list(municipalities.keys())
+
+                if self.municipality is not None:
+                    self.municipality.grid_forget()
+                    self.lbl_municipalities.grid_forget()
+                else:
+                    for widget in central.frame.winfo_children():
+                        if 'row' in widget.grid_info() and widget.grid_info()['row'] > 0:
+                            widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
+
+                self.lbl_municipalities = Label(central.frame, text="Municipalities: ")
+                self.lbl_municipalities.grid(column=0, row=1)
+
+                municipality = StringVar(central.frame)
+                municipality.set("ALL")  # default value
+                municipalities.insert(0, "ALL")
+                self.municipality = OptionMenu(central.frame, municipality, *municipalities,
+                                               command=lambda _: search.update('municipality', municipality.get()))
+                self.municipality.grid(column=1, row=1)
+
+
+
+    def toggle_advanced_settings(self, central, search):
         text = ""
         county = None
-        program.set_advanced_state(not program.is_advanced())
-        for widget in program.get_frame().winfo_children():
+        advanced_btn, submit_btn = None, None
+        central.advanced = (not central.advanced)
+
+        for widget in central.frame.winfo_children():
             if type(widget) is Button:
-                if "Advanced Settings" in widget['text']:
-                    if program.is_advanced():
-                        text = "Hide Advanced Settings"
-                    else:
-                        text = "Advanced Settings"
+                if "submit" in widget['text'].lower():
+                    submit_btn = widget
+                elif "advanced settings" in widget['text'].lower():
+                    advanced_btn = widget
                 widget.grid_forget()
 
-        if program.is_advanced():
-            status_label = Label(program.get_frame(), text="Status: ")
-            filer_label = Label(program.get_frame(), text="Filer: ")
-            registered_label = Label(program.get_frame(), text="Registered Within: ")
-            status_opt = ["ALL", "ACTIVE", "TERMINATED"]
-            status_def = StringVar(program.get_frame())
-            status_def.set(status_opt[1])
-            status = OptionMenu(program.get_frame(), status_def, *status_opt)
+        if central.advanced:
+            status_label = Label(central.frame, text="Status: ")
+            filer_label = Label(central.frame, text="Filer: ")
+            registered_label = Label(central.frame, text="Registered Within: ")
+
+            status_opt = [e.name.title() for e in Status]
+            status_def = StringVar(central.frame)
+            status_def.set(search.status)
+            status = OptionMenu(central.frame, status_def, *status_opt,
+                                command=lambda _: search.update('status', status_def.get()))
             row = 1
 
-            registered_opt = ["ALL", "Today", "Last 7 days", "Last 30 days", "Last Year", "Date Range"]
-            registered_def = StringVar(program.get_frame())
-            registered_def.set(registered_opt[0])
-            registered = OptionMenu(program.get_frame(), registered_def, *registered_opt)
+            registered_opt = [e.name.replace("_", " ").title() for e in Registered]
+            registered_def = StringVar(central.frame)
+            registered_def.set(search.registered)
+            registered = OptionMenu(central.frame, registered_def, *registered_opt,
+                                    command=lambda _: self.date_range(search, central, registered_def.get()))
 
-            filer_opt = ["ALL", "Candidate", "Committee"]
-            filer_def = StringVar(program.get_frame())
-            filer_def.set(filer_opt[0])
-            filer = OptionMenu(program.get_frame(), filer_def, *filer_opt)
+            filer_opt = [e.name.title() for e in Filer]
+            filer_def = StringVar(central.frame)
+            filer_def.set(search.filer)
+            filer = OptionMenu(central.frame, filer_def, *filer_opt,
+                               command=lambda _: search.update('filer', filer_def.get()))
 
             status_label.grid(column=0, row=row)
             status.grid(column=1, row=row)
             row += 1
-
-            if govt_level == GovtLevel.COUNTY:
-                pass
 
             filer_label.grid(column=0, row=row)
             filer.grid(column=1, row=row)
@@ -154,28 +185,63 @@ class Utils:
             registered.grid(column=1, row=row)
             row += 1
 
-            submit = Button(program.get_frame(), text="Submit", command=lambda: ok(program.get_frame(), {}))
-            submit.grid(column=0, row=row, columnspan=2)
+            submit_btn.grid(column=0, row=row, columnspan=2)
             row += 1
-            advanced = Button(program.get_frame(), text=text,
-                              command=lambda: self.toggle_advanced_settings(program, GovtLevel.COUNTY))
-            advanced.grid(column=0, row=row, columnspan=2)
+            advanced_btn.config(text="Hide Advanced Settings")
+            advanced_btn.grid(column=0, row=row, columnspan=2)
             print("The row of status label is {0}".format(status_label.grid_info()['row']))
+
+            if search.county != "ALL":
+                self.show_municipalities(central, search, search.county)
+
         else:
-            for item in program.root.winfo_children():
+            for item in central.root.winfo_children():
                 item.grid_forget()
-            return CountySearch(program.root)
+            return CountySearch(search, central).county_search()
 
 
-def get_selection(item):
-    print("Selected: {0}".format(item))
+
+    def date_range(self, search, central, selection):
+        search.update('registered', selection)
+        last_row = 0
+
+        if selection == "Date Range":
+            for widget in central.frame.winfo_children():
+                if 'row' in widget.grid_info():
+                    if type(widget) is not Button:
+                        if last_row < widget.grid_info()['row']:
+                            last_row = widget.grid_info()['row'] + 1
+                    else:
+                        widget.grid(row=(widget.grid_info()['row'] + 2))
+            print("Last Row: {0}".format(last_row))
+
+            self.date_from_lbl = Label(central.frame, text="Date From: ")
+            self.date_to_lbl = Label(central.frame, text="Date To: ")
+
+            self.date_from_cal = DateEntry(central.frame, command=lambda _: get_selection(self.date_from_cal.get()))
+            self.date_from_cal.bind("<<DateEntrySelected>>", lambda _:
+                                    search.update(Registered.DATE_RANGE, 'dateFrom', date=self.date_from_cal.get()))
+
+            self.date_to_cal = DateEntry(central.frame, command=lambda _: get_selection(self.date_to_cal.get()))
+            self.date_to_cal.bind("<<DateEntrySelected>>", lambda _:
+                                  search.update(Registered.DATE_RANGE, 'dateTo', date=self.date_to_cal.get()))
+
+            self.date_from_lbl.grid(column=0, row=last_row)
+            self.date_from_cal.grid(column=1, row=last_row)
+            last_row += 1
+
+            self.date_to_lbl.grid(column=0, row=last_row)
+            self.date_to_cal.grid(column=1, row=last_row)
+        else:
+            if self.date_from_cal is not None:
+                self.date_from_cal.grid_forget()
+                self.date_to_cal.grid_forget()
+                self.date_to_lbl.grid_forget()
+                self.date_from_lbl.grid_forget()
 
 
-def ok(frame, variable):
-    print("value is:" + variable.get())
-    frame.destroy()
-
-
+def submit(search):
+    pass
 
 
 st = Central()
