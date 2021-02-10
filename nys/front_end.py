@@ -5,31 +5,6 @@ from nys import scrape
 from nys.scrape import *
 
 
-class Search:
-    govt_level, filer, status, registered = None, None, None, None
-
-    county, municipality, date_range_data = "ALL", None, {}
-
-    def __init__(self, govt_level: GovtLevel, **kwargs):
-        self.govt_level = govt_level
-        self.filer = Filer.ALL.name
-        self.status = Status.ALL.name
-        self.registered = Registered.ALL.name
-
-    def update(self, name, value, **kwargs):
-        print("ran for {0}".format(name))
-        if name == "registered":
-            print(value)
-            self.registered = Registered[value.replace(" ", "_").upper()]
-            if self.registered == Registered.DATE_RANGE:
-                print("poooo")
-        elif name == self.registered:
-            print("ran")
-            self.date_range_data[value] = kwargs.get('date')
-        else:
-            setattr(self, name, value)
-
-
 class Central:
     root, frame = None, None
     advanced = False
@@ -74,16 +49,29 @@ class CountySearch:
 
         frame = ttk.Frame(self.central.root)
         counties = scrape.get_counties()
-        counties = list(counties.keys())
         county_label = Label(frame, text='Select County: ')
 
         county = StringVar(frame)
         county.set(self.search.county)
-        counties.insert(0, "ALL")
 
         util = Utils()
-        county_selection = OptionMenu(frame, county, *counties, command=lambda _:
-                                      util.show_municipalities(self.central, self.search, county.get()))
+
+        def post_county():
+            if county.get() != "ALL":
+                return {
+                    "name": county.get(),
+                    "id": counties[county.get()]
+                }
+            else:
+                return {
+                    "name": county.get()
+                }
+
+        counties_lst = list(counties.keys())
+        counties_lst.insert(0, "ALL")
+
+        county_selection = OptionMenu(frame, county, *counties_lst, command=lambda _:
+                                      util.show_municipalities(self.central, self.search, post_county()))
 
         submit_btn = Button(frame, text="Submit", command=lambda: submit(self.search))
         advanced = Button(frame, text="Advanced Settings", command=lambda:
@@ -105,15 +93,20 @@ class Utils:
     date_from_cal, date_to_cal = None, None
     date_from_lbl, date_to_lbl = None, None
 
-    def show_municipalities(self, central, search, county):
-        search.update('county', county)
+    def show_municipalities(self, central, search, county_data):
+        search.update('county', county_data['name'])
+        if 'id' in county_data:
+            search.update('county_id', county_data['id'])
+        else:
+            search.update('county_id', None)
         if central.advanced:
-            if county.lower() == "ALL".lower():
+            if county_data['name'].lower() == "ALL".lower():
                 self.municipality.grid_forget()
                 self.lbl_municipalities.grid_forget()
             else:
-                municipalities = scrape.get_municipality(scrape.get_counties()[county])
-                municipalities = list(municipalities.keys())
+                municipalities = scrape.get_municipality(scrape.get_counties()[county_data['name']])
+
+
 
                 if self.municipality is not None:
                     self.municipality.grid_forget()
@@ -128,16 +121,24 @@ class Utils:
 
                 municipality = StringVar(central.frame)
                 municipality.set("ALL")  # default value
-                municipalities.insert(0, "ALL")
-                self.municipality = OptionMenu(central.frame, municipality, *municipalities,
-                                               command=lambda _: search.update('municipality', municipality.get()))
+
+                def post_municipalities():
+                    search.update('municipality', municipality.get())
+                    if municipality.get() != "ALL":
+                        search.update('municipality_id', municipalities[municipality.get()])
+                    else:
+                        search.update('municipality_id', None)
+                    print(municipality.get())
+
+                municipalities_lst = list(municipalities.keys())
+                municipalities_lst.insert(0, "ALL")
+                self.municipality = OptionMenu(central.frame, municipality, *municipalities_lst,
+                                               command=lambda _: post_municipalities())
                 self.municipality.grid(column=1, row=1)
 
 
 
     def toggle_advanced_settings(self, central, search):
-        text = ""
-        county = None
         advanced_btn, submit_btn = None, None
         central.advanced = (not central.advanced)
 
@@ -218,11 +219,11 @@ class Utils:
             self.date_from_lbl = Label(central.frame, text="Date From: ")
             self.date_to_lbl = Label(central.frame, text="Date To: ")
 
-            self.date_from_cal = DateEntry(central.frame, command=lambda _: get_selection(self.date_from_cal.get()))
+            self.date_from_cal = DateEntry(central.frame)
             self.date_from_cal.bind("<<DateEntrySelected>>", lambda _:
                                     search.update(Registered.DATE_RANGE, 'dateFrom', date=self.date_from_cal.get()))
 
-            self.date_to_cal = DateEntry(central.frame, command=lambda _: get_selection(self.date_to_cal.get()))
+            self.date_to_cal = DateEntry(central.frame)
             self.date_to_cal.bind("<<DateEntrySelected>>", lambda _:
                                   search.update(Registered.DATE_RANGE, 'dateTo', date=self.date_to_cal.get()))
 
@@ -241,7 +242,7 @@ class Utils:
 
 
 def submit(search):
-    pass
+    print(get_filers_v(search))
 
 
 st = Central()
