@@ -10,13 +10,54 @@ class GovtLevel(Enum):
 
 
 class Filer(Enum):
-    CANDIDATE = 1
-    COMMITTEE = 2
+    ALL = 1
+    CANDIDATE = 2
+    COMMITTEE = 3
 
 
 class Status(Enum):
-    ACTIVE = 1
-    TERMINATED = 2
+    ALL = 1
+    ACTIVE = 2
+    TERMINATED = 3
+
+
+class Registered(Enum):
+    ALL = 1
+    TODAY = 2
+    LAST_7_DAYS = 3
+    LAST_30_DAYS = 4
+    LAST_YEAR = 5
+    DATE_RANGE = 6
+
+
+class Search:
+    govt_level, filer, status, registered = None, None, None, None
+    county_id, municipality_id = None, None
+
+    county, municipality, date_range_data = "ALL", None, {}
+
+    def __init__(self, govt_level: GovtLevel):
+        self.govt_level = govt_level
+        self.filer = Filer.ALL.name
+        self.status = Status.ALL.name
+        self.registered = Registered.ALL.name
+
+    def update(self, name, value, **kwargs):
+        print("ran for {0}".format(name))
+        if name == "registered":
+            print(value)
+            self.registered = Registered[value.replace(" ", "_").upper()]
+            if self.registered == Registered.DATE_RANGE:
+                print("poooo")
+        elif name == self.registered:
+            print("ran")
+            self.date_range_data[value] = kwargs.get('date')
+        elif name == "filer":
+            self.filer = Filer[value.replace(" ", "_").upper()]
+        elif name == "status":
+            self.status = Status[value.replace(" ", "_").upper()]
+        else:
+            setattr(self, name, value)
 
 
 def get(url, payload=None):
@@ -60,7 +101,7 @@ def get_municipality(county_id):
     return get(url, payload)
 
 
-def get_filers(govt_level: GovtLevel, status: Status, date_from, date_to, filer_type: Filer, **kwargs):
+def get_filers(search: Search):
     url = "https://publicreporting.elections.ny.gov/ActiveDeactiveFiler/GetSearchListOfFilersData"
     headers = {
         "Accept": "application/json; charset=utf-8",
@@ -69,31 +110,52 @@ def get_filers(govt_level: GovtLevel, status: Status, date_from, date_to, filer_
     }
 
     payload = {
-        "lstOfficeType": str(govt_level.value),
+        "lstOfficeType": str(search.govt_level.value),
         "lstCounty": "-+Select+-",
         "lstMunicipality": "-+Select+-",
-        "lstStatus": status.name,
-        "lstFilerType": filer_type.name,
+        "lstStatus": search.status.name.capitalize(),
+        "lstFilerType": "",  # needs to be removed and handled for ALL
         "lstOffice": "-+Select+-",
         "lstDistrict": "-+Select+-",
-        "lstDateType": "Date+Range",
+        "lstDateType": search.registered.name.capitalize().replace("_", "+"),
         "ddlCommitteeType": "-+Select+-",
-        "txtDateFrom": date_from.strftime('%m/%d/%Y'),
-        "txtDateTo": date_to.strftime('%m/%d/%Y')
+        "txtDateFrom": "",
+        "txtDateTo": ""
     }
 
-    if govt_level == GovtLevel.COUNTY:
-        if kwargs.get('county') is not None:
-            if kwargs.get('municipality') is not None:
-                payload['lstCounty'] = kwargs.get('county')
-                payload['lstMunicipality'] = kwargs.get('municipality')
-            else:
-                # this shouldn't occur as the default value is ALL.
-                raise ValueError("Select a municipality.")
-        else:
-            # this shouldn't occur as the default value is ALL.
-            raise ValueError("Select a county.")
+    if search.filer != Filer.ALL:
+        payload['lstFilerType'] = search.filer.name.capitalize()
 
+    if search.govt_level == GovtLevel.COUNTY:
+        if search.county_id is not None:
+            # this needs to pass a numerical value. get_counties returns an enum which has the values.
+            payload['lstCounty'] = str(search.county_id)
+            if search.municipality_id is not None:
+                # this needs to pass a numerical value. get_municipalities returns a dict which has the values.
+                payload['lstMunicipality'] = str(search.municipality_id)
+            elif search.municipality.upper() == "ALL":
+                payload['lstMunicipality'] = str(search.municipality).capitalize()
+                # this shouldn't occur as the default value is ALL.
+            else:
+                print(search.municipality)
+                raise ValueError("Select a municipality.")
+    elif search.govt_level == GovtLevel.STATE:
+        pass
+    if search.registered == Registered.DATE_RANGE:
+        if search.date_range_data is not None:
+            # temporary, we should later prompt the user that they need to fix it.
+            date = search.date_range_data
+            if date['dateFrom'].strftime('%m/%d/%Y') > date['dateTo'].strftime('%m/%d/%Y'):
+                payload['txtDateTo'] = date['dateFrom'].strftime('%m/%d/%Y')
+                payload['txtDateFrom'] = date['dateTo'].strftime('%m/%d/%Y')
+            else:
+                payload['txtDateFrom'] = date['dateFrom'].strftime('%m/%d/%Y')
+                payload['txtDateTo'] = date['dateTo'].strftime('%m/%d/%Y')
+        else:
+            # raise error saying that one of them is missing.
+            pass
+
+    print(payload)
     payload = "&".join([f"{key}={value}" for key, value in payload.items()]).replace(" ", "+")
     with requests.Session() as session:
         session.headers = headers
