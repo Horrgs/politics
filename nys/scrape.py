@@ -38,26 +38,30 @@ class Search:
 
     def __init__(self, govt_level: GovtLevel):
         self.govt_level = govt_level
-        self.filer = Filer.ALL.name
-        self.status = Status.ALL.name
-        self.registered = Registered.ALL.name
+        self.filer = Filer.ALL
+        self.status = Status.ALL
+        self.registered = Registered.ALL
+        self.municipality = "ALL"
 
     def update(self, name, value, **kwargs):
         print("ran for {0}".format(name))
-        if name == "registered":
-            print(value)
-            self.registered = Registered[value.replace(" ", "_").upper()]
-            if self.registered == Registered.DATE_RANGE:
-                print("poooo")
-        elif name == self.registered:
-            print("ran")
-            self.date_range_data[value] = kwargs.get('date')
-        elif name == "filer":
-            self.filer = Filer[value.replace(" ", "_").upper()]
-        elif name == "status":
-            self.status = Status[value.replace(" ", "_").upper()]
-        else:
+        if isinstance(value, Enum):
             setattr(self, name, value)
+        else:
+            if name == "registered":
+                print(value)
+                self.registered = Registered[value.replace(" ", "_").upper()]
+                if self.registered == Registered.DATE_RANGE:
+                    print("poooo")
+            elif name == self.registered:
+                print("ran")
+                self.date_range_data[value] = kwargs.get('date')
+            elif name == "filer":
+                self.filer = Filer[value.replace(" ", "_").upper()]
+            elif name == "status":
+                self.status = Status[value.replace(" ", "_").upper()]
+            else:
+                setattr(self, name, value)
 
 
 def get(url, payload=None):
@@ -125,6 +129,14 @@ def get_filers(search: Search):
 
     if search.filer != Filer.ALL:
         payload['lstFilerType'] = search.filer.name.capitalize()
+    else:
+        search.update('filer', Filer.CANDIDATE)
+        f_1 = get_filers(search)
+        search.update('filer', Filer.COMMITTEE)
+        f_2 = get_filers(search)
+        for item in f_2:
+            f_1.append(item)
+        return f_1
 
     if search.govt_level == GovtLevel.COUNTY:
         if search.county_id is not None:
@@ -160,4 +172,11 @@ def get_filers(search: Search):
     with requests.Session() as session:
         session.headers = headers
         rew = session.post(url, headers=headers, params=payload)
-    return json.loads(rew.text)
+    return json.loads(rew.text)['aaData']
+
+
+
+
+d = datetime(year=2010, month=8, day=1)
+d_t = datetime(year=2020, month=8, day=1)
+#print(get_filers(GovtLevel.STATE, Status.ACTIVE, d, d_t, Filer.CANDIDATE))

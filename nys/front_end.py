@@ -56,22 +56,21 @@ class CountySearch:
 
         util = Utils()
 
-        def post_county():
+        def post_county(search):
+
+            search.update('county', county.get())
             if county.get() != "ALL":
-                return {
-                    "name": county.get(),
-                    "id": counties[county.get()]
-                }
+                search.update('county_id', counties[county.get()])
             else:
-                return {
-                    "name": county.get()
-                }
+                search.update('county_id', None)
+
+            if self.central.advanced:
+                util.show_municipalities(self.central, self.search)
 
         counties_lst = list(counties.keys())
         counties_lst.insert(0, "ALL")
 
-        county_selection = OptionMenu(frame, county, *counties_lst, command=lambda _:
-                                      util.show_municipalities(self.central, self.search, post_county()))
+        county_selection = OptionMenu(frame, county, *counties_lst, command=lambda _: post_county(self.search))
 
         submit_btn = Button(frame, text="Submit", command=lambda: submit(self.search))
         advanced = Button(frame, text="Advanced Settings", command=lambda:
@@ -93,48 +92,42 @@ class Utils:
     date_from_cal, date_to_cal = None, None
     date_from_lbl, date_to_lbl = None, None
 
-    def show_municipalities(self, central, search, county_data):
-        search.update('county', county_data['name'])
-        if 'id' in county_data:
-            search.update('county_id', county_data['id'])
+    def show_municipalities(self, central, search):
+        if search.county.lower() == "ALL".lower():
+            self.municipality.grid_forget()
+            self.lbl_municipalities.grid_forget()
         else:
-            search.update('county_id', None)
-        if central.advanced:
-            if county_data['name'].lower() == "ALL".lower():
+            municipalities = scrape.get_municipality(scrape.get_counties()[search.county])
+
+
+
+            if self.municipality is not None:
                 self.municipality.grid_forget()
                 self.lbl_municipalities.grid_forget()
             else:
-                municipalities = scrape.get_municipality(scrape.get_counties()[county_data['name']])
+                for widget in central.frame.winfo_children():
+                    if 'row' in widget.grid_info() and widget.grid_info()['row'] > 0:
+                        widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
 
+            self.lbl_municipalities = Label(central.frame, text="Municipalities: ")
+            self.lbl_municipalities.grid(column=0, row=1)
 
+            municipality = StringVar(central.frame)
+            municipality.set("ALL")  # default value
 
-                if self.municipality is not None:
-                    self.municipality.grid_forget()
-                    self.lbl_municipalities.grid_forget()
+            def post_municipalities():
+                search.update('municipality', municipality.get())
+                if municipality.get() != "ALL":
+                    search.update('municipality_id', municipalities[municipality.get()])
                 else:
-                    for widget in central.frame.winfo_children():
-                        if 'row' in widget.grid_info() and widget.grid_info()['row'] > 0:
-                            widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
+                    search.update('municipality_id', None)
+                print(municipality.get())
 
-                self.lbl_municipalities = Label(central.frame, text="Municipalities: ")
-                self.lbl_municipalities.grid(column=0, row=1)
-
-                municipality = StringVar(central.frame)
-                municipality.set("ALL")  # default value
-
-                def post_municipalities():
-                    search.update('municipality', municipality.get())
-                    if municipality.get() != "ALL":
-                        search.update('municipality_id', municipalities[municipality.get()])
-                    else:
-                        search.update('municipality_id', None)
-                    print(municipality.get())
-
-                municipalities_lst = list(municipalities.keys())
-                municipalities_lst.insert(0, "ALL")
-                self.municipality = OptionMenu(central.frame, municipality, *municipalities_lst,
-                                               command=lambda _: post_municipalities())
-                self.municipality.grid(column=1, row=1)
+            municipalities_lst = list(municipalities.keys())
+            municipalities_lst.insert(0, "ALL")
+            self.municipality = OptionMenu(central.frame, municipality, *municipalities_lst,
+                                           command=lambda _: post_municipalities())
+            self.municipality.grid(column=1, row=1)
 
 
 
@@ -157,20 +150,20 @@ class Utils:
 
             status_opt = [e.name.title() for e in Status]
             status_def = StringVar(central.frame)
-            status_def.set(search.status)
+            status_def.set(search.status.name)
             status = OptionMenu(central.frame, status_def, *status_opt,
                                 command=lambda _: search.update('status', status_def.get()))
             row = 1
 
             registered_opt = [e.name.replace("_", " ").title() for e in Registered]
             registered_def = StringVar(central.frame)
-            registered_def.set(search.registered)
+            registered_def.set(search.registered.name)
             registered = OptionMenu(central.frame, registered_def, *registered_opt,
                                     command=lambda _: self.date_range(search, central, registered_def.get()))
 
             filer_opt = [e.name.title() for e in Filer]
             filer_def = StringVar(central.frame)
-            filer_def.set(search.filer)
+            filer_def.set(search.filer.name)
             filer = OptionMenu(central.frame, filer_def, *filer_opt,
                                command=lambda _: search.update('filer', filer_def.get()))
 
@@ -193,7 +186,7 @@ class Utils:
             print("The row of status label is {0}".format(status_label.grid_info()['row']))
 
             if search.county != "ALL":
-                self.show_municipalities(central, search, search.county)
+                self.show_municipalities(central, search)
 
         else:
             for item in central.root.winfo_children():
@@ -242,7 +235,15 @@ class Utils:
 
 
 def submit(search):
-    print(get_filers_v(search))
+    filers = get_filers(search)
+    print(filers)
+    for filer in filers:
+        pass
+
+
+
+def display_filers(search, central):
+    filers = get_filers(search)
 
 
 st = Central()
