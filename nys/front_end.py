@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import ttk
 from tkcalendar import DateEntry
 from nys import scrape
+from nys.medium import Entity
 from nys.scrape import *
 
 
@@ -72,7 +73,7 @@ class CountySearch:
 
         county_selection = OptionMenu(frame, county, *counties_lst, command=lambda _: post_county(self.search))
 
-        submit_btn = Button(frame, text="Submit", command=lambda: submit(self.search))
+        submit_btn = Button(frame, text="Submit", command=lambda: display_filers(self.search, self.central))
         advanced = Button(frame, text="Advanced Settings", command=lambda:
                           util.toggle_advanced_settings(self.central, self.search))
 
@@ -234,16 +235,19 @@ class Utils:
                 self.date_from_lbl.grid_forget()
 
 
-def submit(search):
-    filers = get_filers(search)
-    print(filers)
-    for filer in filers:
-        pass
-
-
-
 def display_filers(search, central):
-    filers = get_filers(search)
+    filers = [Entity(filer, search) for filer in get_filers(search)]
+    for item in central.frame.winfo_children():
+        item.grid_forget()
+    sb = Scrollbar(central.frame)
+    sb.pack(side=RIGHT, fill=Y)
+    mylist = Listbox(central.root, yscrollcommand=sb.set, selectmode="multiple")
+
+    for filer in filers:
+        print(filer.name)
+
+    mylist.pack(side=LEFT)
+    sb.config(command=mylist.yview)
 
 
 st = Central()

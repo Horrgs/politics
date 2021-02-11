@@ -1,67 +1,7 @@
 import requests
-from enum import Enum
 import json
 from datetime import datetime
-
-
-class GovtLevel(Enum):
-    STATE = 1
-    COUNTY = 2
-
-
-class Filer(Enum):
-    ALL = 1
-    CANDIDATE = 2
-    COMMITTEE = 3
-
-
-class Status(Enum):
-    ALL = 1
-    ACTIVE = 2
-    TERMINATED = 3
-
-
-class Registered(Enum):
-    ALL = 1
-    TODAY = 2
-    LAST_7_DAYS = 3
-    LAST_30_DAYS = 4
-    LAST_YEAR = 5
-    DATE_RANGE = 6
-
-
-class Search:
-    govt_level, filer, status, registered = None, None, None, None
-    county_id, municipality_id = None, None
-
-    county, municipality, date_range_data = "ALL", None, {}
-
-    def __init__(self, govt_level: GovtLevel):
-        self.govt_level = govt_level
-        self.filer = Filer.ALL
-        self.status = Status.ALL
-        self.registered = Registered.ALL
-        self.municipality = "ALL"
-
-    def update(self, name, value, **kwargs):
-        print("ran for {0}".format(name))
-        if isinstance(value, Enum):
-            setattr(self, name, value)
-        else:
-            if name == "registered":
-                print(value)
-                self.registered = Registered[value.replace(" ", "_").upper()]
-                if self.registered == Registered.DATE_RANGE:
-                    print("poooo")
-            elif name == self.registered:
-                print("ran")
-                self.date_range_data[value] = kwargs.get('date')
-            elif name == "filer":
-                self.filer = Filer[value.replace(" ", "_").upper()]
-            elif name == "status":
-                self.status = Status[value.replace(" ", "_").upper()]
-            else:
-                setattr(self, name, value)
+from nys.medium import *
 
 
 def get(url, payload=None):
