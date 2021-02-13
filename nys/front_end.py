@@ -94,41 +94,40 @@ class Utils:
     date_from_lbl, date_to_lbl = None, None
 
     def show_municipalities(self, central, search):
-        if search.county.lower() == "ALL".lower():
+        if search.county.lower() == "ALL".lower() and self.municipality is not None:
             self.municipality.grid_forget()
             self.lbl_municipalities.grid_forget()
         else:
             municipalities = scrape.get_municipality(scrape.get_counties()[search.county])
 
-
-
-            if self.municipality is not None:
-                self.municipality.grid_forget()
-                self.lbl_municipalities.grid_forget()
-            else:
-                for widget in central.frame.winfo_children():
-                    if 'row' in widget.grid_info() and widget.grid_info()['row'] > 0:
-                        widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
-
-            self.lbl_municipalities = Label(central.frame, text="Municipalities: ")
-            self.lbl_municipalities.grid(column=0, row=1)
-
-            municipality = StringVar(central.frame)
-            municipality.set("ALL")  # default value
-
-            def post_municipalities():
-                search.update('municipality', municipality.get())
-                if municipality.get() != "ALL":
-                    search.update('municipality_id', municipalities[municipality.get()])
+            if municipalities is not None:
+                if self.municipality is not None:
+                    self.municipality.grid_forget()
+                    self.lbl_municipalities.grid_forget()
                 else:
-                    search.update('municipality_id', None)
-                print(municipality.get())
+                    for widget in central.frame.winfo_children():
+                        if 'row' in widget.grid_info() and widget.grid_info()['row'] > 0:
+                            widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
 
-            municipalities_lst = list(municipalities.keys())
-            municipalities_lst.insert(0, "ALL")
-            self.municipality = OptionMenu(central.frame, municipality, *municipalities_lst,
-                                           command=lambda _: post_municipalities())
-            self.municipality.grid(column=1, row=1)
+                self.lbl_municipalities = Label(central.frame, text="Municipalities: ")
+                self.lbl_municipalities.grid(column=0, row=1)
+
+                municipality = StringVar(central.frame)
+                municipality.set("ALL")  # default value
+
+                def post_municipalities():
+                    search.update('municipality', municipality.get())
+                    if municipality.get() != "ALL":
+                        search.update('municipality_id', municipalities[municipality.get()])
+                    else:
+                        search.update('municipality_id', None)
+                    print(municipality.get())
+
+                municipalities_lst = list(municipalities.keys())
+                municipalities_lst.insert(0, "ALL")
+                self.municipality = OptionMenu(central.frame, municipality, *municipalities_lst,
+                                               command=lambda _: post_municipalities())
+                self.municipality.grid(column=1, row=1)
 
 
 
@@ -236,18 +235,66 @@ class Utils:
 
 
 def display_filers(search, central):
-    filers = [Entity(filer, search) for filer in get_filers(search)]
-    for item in central.frame.winfo_children():
-        item.grid_forget()
-    sb = Scrollbar(central.frame)
-    sb.pack(side=RIGHT, fill=Y)
-    mylist = Listbox(central.root, yscrollcommand=sb.set, selectmode="multiple")
+    filers = get_filers(search)
+    print(filers)
+    filers = [Entity(filer, search) for filer in filers]
+    for widget in central.frame.winfo_children():
+        widget.destroy()
+
+    frame = Frame(central.frame)
+    frame.grid(row=2, column=0, sticky='nw')
+    frame.grid_rowconfigure(0, weight=1)
+    frame.grid_columnconfigure(0, weight=1)
+
+    # Add a canvas in that frame
+    canvas = Canvas(frame)
+    canvas.grid(row=0, column=0, sticky="news")
+
+    # Link a scrollbar to the canvas
+    vsb = Scrollbar(frame, orient="vertical", command=canvas.yview)
+    vsb.grid(row=0, column=1, sticky='ns')
+    canvas.configure(yscrollcommand=vsb.set)
+
+    # Create a frame to contain the buttons
+    data = Frame(canvas)
+    canvas.create_window((0, 0), window=data, anchor="nw")
+    row = 0
+    for filer in filers:
+        cell = Frame(data, name=str(filer.id))
+        c_name = Label(cell, text="Name: {0}".format(filer.name))
+        c_name.grid(column=0, row=row, sticky='w')
+        row += 1
+        if search.filer == Filer.CANDIDATE:
+            seat = Label(cell, text="District: {0}-{1}".format(filer.seat, filer.district))
+            seat.grid(column=0, row=row)
+            row += 1
+        c_id = Label(cell, text="Filer ID: {0}".format(filer.id))
+        c_registered = Label(cell, text="Registered: {0}".format(filer.registered))
+
+        c_id.grid(column=0, row=row, sticky='e')
+        row += 1
+        c_registered.grid(column=0, row=row, sticky='e')
+        central.root.bind("<Button-1>", get_candidate)
+        cell.grid(column=0, row=row, sticky='ew')
+        row += 1
+
+    data.update_idletasks()
+    canvas.configure(scrollregion=canvas.bbox("all"))
+
 
     for filer in filers:
         print(filer.name)
 
-    mylist.pack(side=LEFT)
-    sb.config(command=mylist.yview)
+
+
+
+def get_candidate(event):
+    print("kk")
+    if event.widget is not None:
+        if str(event.widget).split(".")[-1] is not None:
+            print(str(event.widget.master).split(".")[-1])
+
+
 
 
 st = Central()

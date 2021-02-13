@@ -5,15 +5,22 @@ from nys.medium import *
 
 
 def get(url, payload=None):
-    if payload is not None:
-        req = requests.post(url, data=payload)
-    else:
-        req = requests.post(url)
-    response = {}
-    for item in json.loads(req.text):
-        response[item['Text']] = int(item['Value'])
-    response = dict(sorted(response.items(), key=lambda obj: obj[1]))
-    return response
+    try:
+        if payload is not None:
+            req = requests.post(url, data=payload)
+        else:
+            req = requests.post(url)
+        print(req.text)
+        response = {}
+        for item in json.loads(req.text):
+            response[item['Text']] = int(item['Value'])
+        response = dict(sorted(response.items(), key=lambda obj: obj[1]))
+        return response
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(e)
+    except ValueError as e:
+        print(e)
+
 
 
 def get_counties():
