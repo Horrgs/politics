@@ -11,6 +11,8 @@ class Central:
     advanced = False
 
     def __init__(self):
+
+        # initialize the program and layout
         root = Tk()
         root.title("Testing")
         root.geometry("1000x700")
@@ -19,15 +21,20 @@ class Central:
         frame = ttk.Frame(root)
         context = Label(frame, text="Search State or County records.")
 
+        """ update_search takes a GovtLevel (County or State) and populates the frame to do a search for the 
+        corresponding GovtLevel. """
+
         def update_search(govt_level):
             search = Search(govt_level)
             frame.destroy()
             if govt_level == GovtLevel.COUNTY:
                 CountySearch(search, self).county_search()
 
+        # populates frame with the corresponding GovtLevel using update search.
         state = Button(frame, text='State', command=lambda: update_search(GovtLevel.STATE))
         county = Button(frame, text='County', command=lambda: update_search(GovtLevel.COUNTY))
 
+        # frame layout
         frame.grid(column=0, row=0)
         context.grid(column=0, row=0, columnspan=2)
         state.grid(column=0, row=1)
@@ -46,9 +53,12 @@ class CountySearch:
         self.central = central
 
     def county_search(self):
+        # destroy current frame to repopulate with new frame
         self.central.frame.destroy()
 
-        frame = ttk.Frame(self.central.root)
+        frame = ttk.Frame(self.central.root, name="county")
+
+        # populate frame with county widgets
         counties = scrape.get_counties()
         county_label = Label(frame, text='Select County: ')
 
@@ -57,6 +67,7 @@ class CountySearch:
 
         util = Utils()
 
+        # update current county selection, if county is specific (i.e. not all), set the county_id, else null it.
         def post_county(search):
 
             search.update('county', county.get())
@@ -69,6 +80,7 @@ class CountySearch:
                 util.show_municipalities(self.central, self.search)
 
         counties_lst = list(counties.keys())
+        print(counties_lst)
         counties_lst.insert(0, "ALL")
 
         county_selection = OptionMenu(frame, county, *counties_lst, command=lambda _: post_county(self.search))
@@ -77,6 +89,7 @@ class CountySearch:
         advanced = Button(frame, text="Advanced Settings", command=lambda:
                           util.toggle_advanced_settings(self.central, self.search))
 
+        # layout frame
         frame.grid(column=0, row=0)
         county_label.grid(column=0, row=0)
         county_selection.grid(column=1, row=0)
@@ -87,32 +100,44 @@ class CountySearch:
 
 
 class Utils:
-    lbl_municipalities = None
-    municipality = None
 
     date_from_cal, date_to_cal = None, None
     date_from_lbl, date_to_lbl = None, None
 
+    # this is called when a county selection is made, but may not always show.
     def show_municipalities(self, central, search):
-        if search.county.lower() == "ALL".lower() and self.municipality is not None:
-            self.municipality.grid_forget()
-            self.lbl_municipalities.grid_forget()
-        else:
-            municipalities = scrape.get_municipality(scrape.get_counties()[search.county])
+        # municipalities selection will only show if advanced settings has been selected.
+        if central.advanced:
 
-            if municipalities is not None:
-                if self.municipality is not None:
-                    self.municipality.grid_forget()
-                    self.lbl_municipalities.grid_forget()
-                else:
+            """
+            Check if county selection is all - if so, remove the widgets from frame.
+            Check if municipality already exists - if so, remove it. 
+            
+            This is done because if county selection is all, you can't pick a municipality. If the municipality
+            already exists, it gets removed because it may need to be populated with the results of a new county
+             selection, if county selection isn't already all. """
+
+            try:
+                if search.county.lower() == "all" or central.root.nametowidget('county.municipality') is not None:
+                    central.root.nametowidget('county.lbl_municipalities').grid_forget()
+                    central.root.nametowidget('county.municipality').grid_forget()
+            except KeyError as e:
+                print("The issue is that the widget that you are looking for is not in the frame yet.")
+                print(e)
+                pass
+
+            # if county selection isn't all, then populate the proper municipality data.
+            if search.county.lower() != "all":
+                municipalities = scrape.get_municipality(scrape.get_counties()[search.county])
+                if municipalities is not None:
                     for widget in central.frame.winfo_children():
                         if 'row' in widget.grid_info() and widget.grid_info()['row'] > 0:
                             widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
 
-                self.lbl_municipalities = Label(central.frame, text="Municipalities: ")
-                self.lbl_municipalities.grid(column=0, row=1)
+                lbl_municipalities = Label(central.frame, name="lbl_municipalities", text="Municipalities: ")
+                lbl_municipalities.grid(column=0, row=1)
 
-                municipality = StringVar(central.frame)
+                municipality = StringVar(central.frame, name="municipality")
                 municipality.set("ALL")  # default value
 
                 def post_municipalities():
@@ -124,11 +149,11 @@ class Utils:
                     print(municipality.get())
 
                 municipalities_lst = list(municipalities.keys())
-                municipalities_lst.insert(0, "ALL")
-                self.municipality = OptionMenu(central.frame, municipality, *municipalities_lst,
-                                               command=lambda _: post_municipalities())
-                self.municipality.grid(column=1, row=1)
 
+                municipalities_lst.insert(0, "ALL")
+                municipality_menu = OptionMenu(central.frame, municipality, *municipalities_lst,
+                                          command=lambda _: post_municipalities())
+                municipality_menu.grid(column=1, row=1)
 
 
     def toggle_advanced_settings(self, central, search):
@@ -243,8 +268,6 @@ def display_filers(search, central):
 
     frame = Frame(central.frame)
     frame.grid(row=2, column=0, sticky='nw')
-    frame.grid_rowconfigure(0, weight=1)
-    frame.grid_columnconfigure(0, weight=1)
 
     # Add a canvas in that frame
     canvas = Canvas(frame)
@@ -276,7 +299,7 @@ def display_filers(search, central):
         row += 1
         c_registered.grid(column=0, row=row, sticky='w')
         central.root.bind("<Button-1>", get_candidate)
-        cell.grid(column=0, row=row, sticky='ew')
+        cell.grid(column=0, row=row, sticky='news')
         row += 1
 
     data.update_idletasks()
