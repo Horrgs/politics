@@ -60,38 +60,41 @@ class CountySearch:
 
         # populate frame with county widgets
         counties = scrape.get_counties()
+        if counties is None:
+            return self.county_search()
+        else:
+            counties_lst = list(counties.keys())
         county_label = Label(frame, text='Select County: ')
 
-        county = StringVar(frame)
-        county.set(self.search.county)
-
         util = Utils()
+
+        counties_lst.insert(0, "All")
+
+        county_selection = ttk.Combobox(frame, values=counties_lst)
+        county_selection.set(counties_lst[0])
 
         # update current county selection, if county is specific (i.e. not all), set the county_id, else null it.
         def post_county(search):
 
-            search.update('county', county.get())
-            if county.get() != "ALL":
-                search.update('county_id', counties[county.get()])
+            search.update('county', county_selection.get())
+            if county_selection.get() != "ALL":
+                search.update('county_id', counties[county_selection.get()])
             else:
                 search.update('county_id', None)
 
             if self.central.advanced:
                 util.show_municipalities(self.central, self.search)
 
-        counties_lst = list(counties.keys())
-        print(counties_lst)
-        counties_lst.insert(0, "ALL")
-
-        county_selection = OptionMenu(frame, county, *counties_lst, command=lambda _: post_county(self.search))
+        county_selection.bind('<<ComboboxSelected>>', lambda _: post_county(self.search))
 
         submit_btn = Button(frame, text="Submit", command=lambda: display_filers(self.search, self.central))
         advanced = Button(frame, text="Advanced Settings", command=lambda:
-                          util.toggle_advanced_settings(self.central, self.search))
+        util.toggle_advanced_settings(self.central, self.search))
+
 
         # layout frame
         frame.grid(column=0, row=0)
-        county_label.grid(column=0, row=0)
+        county_label.grid(column=0, row=0, sticky='w')
         county_selection.grid(column=1, row=0)
         submit_btn.grid(column=0, row=1, columnspan=2)
         advanced.grid(column=0, row=2, columnspan=2)
@@ -135,24 +138,23 @@ class Utils:
                             widget.grid(row=widget.grid_info()['row'] + 1, column=widget.grid_info()['column'])
 
                 lbl_municipalities = Label(central.frame, name="lbl_municipalities", text="Municipalities: ")
-                lbl_municipalities.grid(column=0, row=1)
-
-                municipality = StringVar(central.frame, name="municipality")
-                municipality.set("ALL")  # default value
-
-                def post_municipalities():
-                    search.update('municipality', municipality.get())
-                    if municipality.get() != "ALL":
-                        search.update('municipality_id', municipalities[municipality.get()])
-                    else:
-                        search.update('municipality_id', None)
-                    print(municipality.get())
+                lbl_municipalities.grid(column=0, row=1, sticky='w')
 
                 municipalities_lst = list(municipalities.keys())
 
-                municipalities_lst.insert(0, "ALL")
-                municipality_menu = OptionMenu(central.frame, municipality, *municipalities_lst,
-                                          command=lambda _: post_municipalities())
+                municipalities_lst.insert(0, "All")
+                municipality_menu = ttk.Combobox(central.frame, values=municipalities_lst, name="municipality")
+                municipality_menu.set(municipalities_lst[0])
+
+                def post_municipalities():
+                    search.update('municipality', municipality_menu.get())
+                    if municipality_menu.get() != "ALL":
+                        search.update('municipality_id', municipalities[municipality_menu.get()])
+                    else:
+                        search.update('municipality_id', None)
+
+
+                municipality_menu.bind('<<ComboboxSelected>>', lambda _: post_municipalities())
                 municipality_menu.grid(column=1, row=1)
 
 
@@ -174,33 +176,30 @@ class Utils:
             registered_label = Label(central.frame, text="Registered Within: ")
 
             status_opt = [e.name.title() for e in Status]
-            status_def = StringVar(central.frame)
-            status_def.set(search.status.name)
-            status = OptionMenu(central.frame, status_def, *status_opt,
-                                command=lambda _: search.update('status', status_def.get()))
+            status = ttk.Combobox(central.frame, values=status_opt)
+            status.set(status_opt[0])
+            status.bind('<<ComboboxSelected>>', lambda _: search.update('status', status.get()))
             row = 1
 
             registered_opt = [e.name.replace("_", " ").title() for e in Registered]
-            registered_def = StringVar(central.frame)
-            registered_def.set(search.registered.name)
-            registered = OptionMenu(central.frame, registered_def, *registered_opt,
-                                    command=lambda _: self.date_range(search, central, registered_def.get()))
+            registered = ttk.Combobox(central.frame, values=registered_opt)
+            registered.set(registered_opt[0])
+            registered.bind('<<ComboboxSelected>>', lambda _: self.date_range(search, central, registered.get()))
 
             filer_opt = [e.name.title() for e in Filer]
-            filer_def = StringVar(central.frame)
-            filer_def.set(search.filer.name)
-            filer = OptionMenu(central.frame, filer_def, *filer_opt,
-                               command=lambda _: search.update('filer', filer_def.get()))
+            filer = ttk.Combobox(central.frame, values=filer_opt)
+            filer.set(filer_opt[0])
+            filer.bind('<<ComboboxSelected>>', lambda _: search.update('filer', filer.get()))
 
-            status_label.grid(column=0, row=row)
+            status_label.grid(column=0, row=row, sticky='w')
             status.grid(column=1, row=row)
             row += 1
 
-            filer_label.grid(column=0, row=row)
+            filer_label.grid(column=0, row=row, sticky='w')
             filer.grid(column=1, row=row)
             row += 1
 
-            registered_label.grid(column=0, row=row)
+            registered_label.grid(column=0, row=row, sticky='w')
             registered.grid(column=1, row=row)
             row += 1
 
@@ -208,7 +207,6 @@ class Utils:
             row += 1
             advanced_btn.config(text="Hide Advanced Settings")
             advanced_btn.grid(column=0, row=row, columnspan=2)
-            print("The row of status label is {0}".format(status_label.grid_info()['row']))
 
             if search.county != "ALL":
                 self.show_municipalities(central, search)
@@ -232,10 +230,9 @@ class Utils:
                             last_row = widget.grid_info()['row'] + 1
                     else:
                         widget.grid(row=(widget.grid_info()['row'] + 2))
-            print("Last Row: {0}".format(last_row))
 
-            self.date_from_lbl = Label(central.frame, text="Date From: ")
-            self.date_to_lbl = Label(central.frame, text="Date To: ")
+            self.date_from_lbl = Label(central.frame, text="Date From: ", name='lbl_date_from')
+            self.date_to_lbl = Label(central.frame, text="Date To: ", name='lbl_date_to')
 
             self.date_from_cal = DateEntry(central.frame)
             self.date_from_cal.bind("<<DateEntrySelected>>", lambda _:
@@ -252,16 +249,20 @@ class Utils:
             self.date_to_lbl.grid(column=0, row=last_row)
             self.date_to_cal.grid(column=1, row=last_row)
         else:
-            if self.date_from_cal is not None:
-                self.date_from_cal.grid_forget()
-                self.date_to_cal.grid_forget()
-                self.date_to_lbl.grid_forget()
-                self.date_from_lbl.grid_forget()
+            try:
+                central.root.nametowidget('county.lbl_date_from').grid_forget()
+                central.root.nametowidget('county.lbl_date_to').grid_forget()
+
+                # temporary solution
+                for widget in central.frame.winfo_children():
+                    if isinstance(widget, DateEntry):
+                        widget.destroy()
+            except KeyError as e:
+                print(e)
 
 
 def display_filers(search, central):
     filers = get_filers(search)
-    print(filers)
     filers = [Entity(filer, search) for filer in filers]
     for widget in central.frame.winfo_children():
         widget.destroy()
@@ -306,17 +307,15 @@ def display_filers(search, central):
     canvas.configure(scrollregion=canvas.bbox("all"))
 
 
-    for filer in filers:
-        print(filer.name)
 
 
 
 
 def get_candidate(event):
-    print("kk")
     if event.widget is not None:
         if str(event.widget).split(".")[-1] is not None:
-            print(str(event.widget.master).split(".")[-1])
+            # print(str(event.widget.master).split(".")[-1])
+            pass
 
 
 
