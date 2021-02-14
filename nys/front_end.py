@@ -260,20 +260,21 @@ def display_filers(search, central):
     canvas.create_window((0, 0), window=data, anchor="nw")
     row = 0
     for filer in filers:
-        cell = Frame(data, name=str(filer.id))
+        cell = Frame(data, name=str(filer.id), borderwidth="2")
+        cell.config(bd=1, relief=SOLID)
         c_name = Label(cell, text="Name: {0}".format(filer.name))
         c_name.grid(column=0, row=row, sticky='w')
         row += 1
         if search.filer == Filer.CANDIDATE:
-            seat = Label(cell, text="District: {0}-{1}".format(filer.seat, filer.district))
-            seat.grid(column=0, row=row)
+            seat = Label(cell, text="Seat: {0}".format(filer.office))
+            seat.grid(column=0, row=row, sticky='w')
             row += 1
         c_id = Label(cell, text="Filer ID: {0}".format(filer.id))
         c_registered = Label(cell, text="Registered: {0}".format(filer.registered))
 
-        c_id.grid(column=0, row=row, sticky='e')
+        c_id.grid(column=0, row=row, sticky='w')
         row += 1
-        c_registered.grid(column=0, row=row, sticky='e')
+        c_registered.grid(column=0, row=row, sticky='w')
         central.root.bind("<Button-1>", get_candidate)
         cell.grid(column=0, row=row, sticky='ew')
         row += 1

@@ -67,9 +67,11 @@ class Entity:
     district, seat = None, None  # may be None at all times if Govt Level is Committee.
 
     committee_type = None  # may be None at all times if Govt Level is Candidate.
+    office = None
 
     def __init__(self, data_set, search: Search):
         self.govt_level = search.govt_level
+        print(data_set)
         self.status = Status[data_set[13]]
         self.filer = Filer[data_set[1]]
         self.registered = data_set[11]
@@ -78,9 +80,20 @@ class Entity:
         self.address = data_set[10]
         self.id = data_set[4]
 
+        self.file_location = data_set[9].split(", ")
+
         if self.filer == Filer.CANDIDATE:
-            self.district = data_set[7]
+            self.district = data_set[7].strip()
             self.seat = data_set[6]
+
+            if not self.district:
+                if self.file_location[-1].lower() == "county":
+                    self.office = "{0} of {1}".format(self.seat, " ".join(self.file_location))
+                else:
+                    self.office = "{0} of the {1} of {2}".format(self.seat, self.file_location[1], self.file_location[0])
+            else:
+                self.office = "{0} - {1}".format(self.seat, self.district)
+
         elif self.filer == Filer.COMMITTEE:
             self.committee_type = data_set[3]
 
